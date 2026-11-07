@@ -1,35 +1,24 @@
 /**
- * Browser storage for the demo increment.
- *
- * This is the only file that touches localStorage. The Supabase increment will
- * add a repository with the same responsibilities (load / save) backed by the
- * database, and the UI will not need to change.
+ * Browser storage (demo mode). The only code that touches localStorage for app data.
  */
 import { parseAppData } from "./validate";
+import type { LoadResult, Repository } from "./repository";
 import type { AppData } from "./types";
 
 export const STORAGE_KEY = "life-dashboard:v1";
 export const BACKUP_KEY_PREFIX = "life-dashboard:backup:";
 
-export type LoadResult =
-  | { kind: "empty" }
-  | { kind: "ok"; data: AppData }
-  | { kind: "invalid"; raw: string; error: string }
-  | { kind: "unavailable"; error: string };
-
-export interface LocalRepository {
-  load(): LoadResult;
+export interface LocalRepository extends Repository {
+  readonly kind: "local";
+  loadSync(): LoadResult;
   save(data: AppData): void;
-  /** Copies the current raw value to a timestamped backup key. Returns the key used. */
   backupRaw(now: string): string | null;
-  clear(): void;
-  /** Calls back when another tab changes our key. */
-  subscribeExternal(callback: () => void): () => void;
 }
 
 export function createLocalRepository(getStorage: () => Storage = () => window.localStorage, key = STORAGE_KEY): LocalRepository {
-  return {
-    load() {
+  const repo: LocalRepository = {
+    kind: "local",
+    loadSync() {
       let raw: string | null;
       try {
         raw = getStorage().getItem(key);
@@ -40,8 +29,18 @@ export function createLocalRepository(getStorage: () => Storage = () => window.l
       const parsed = parseAppData(raw);
       return parsed.ok ? { kind: "ok", data: parsed.value } : { kind: "invalid", raw, error: parsed.error };
     },
+    async load() {
+      return repo.loadSync();
+    },
     save(data) {
       getStorage().setItem(key, JSON.stringify(data));
+    },
+    async commit(_change, next) {
+      try {
+        repo.save(next);
+      } catch {
+        throw new Error("Couldn't save — browser storage may be full or blocked. Your change was not kept.");
+      }
     },
     backupRaw(now) {
       const raw = getStorage().getItem(key);
@@ -49,9 +48,6 @@ export function createLocalRepository(getStorage: () => Storage = () => window.l
       const backupKey = `${BACKUP_KEY_PREFIX}${now}`;
       getStorage().setItem(backupKey, raw);
       return backupKey;
-    },
-    clear() {
-      getStorage().removeItem(key);
     },
     subscribeExternal(callback) {
       const handler = (event: StorageEvent) => {
@@ -61,4 +57,5 @@ export function createLocalRepository(getStorage: () => Storage = () => window.l
       return () => window.removeEventListener("storage", handler);
     },
   };
+  return repo;
 }

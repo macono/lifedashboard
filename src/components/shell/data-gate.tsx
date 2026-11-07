@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { DatabaseZap, Download, LoaderCircle, RotateCcw } from "lucide-react";
+import { DatabaseZap, Download, LoaderCircle, RefreshCw, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmResetDialog } from "@/components/shell/storage-dialog";
@@ -37,17 +37,7 @@ export function DataGate({ children }: { children: ReactNode }) {
       </div>
     );
   }
-  if (state.status === "unavailable") {
-    return (
-      <ProblemPanel title="Browser storage isn't available">
-        <p>{state.error}</p>
-        <p>
-          This demo keeps data in your browser. Try a normal (non-private) window, or allow site data for this address,
-          then reload.
-        </p>
-      </ProblemPanel>
-    );
-  }
+  if (state.status === "unavailable") return <Unavailable error={state.error} />;
   if (state.status === "invalid") return <InvalidData error={state.error} />;
 
   return <ReadyContext.Provider value={{ data: state.data, today }}>{children}</ReadyContext.Provider>;
@@ -67,6 +57,30 @@ function ProblemPanel({ title, children }: { title: string; children: ReactNode 
   );
 }
 
+function Unavailable({ error }: { error: string }) {
+  const store = useLifeStore();
+  if (store.mode === "cloud") {
+    return (
+      <ProblemPanel title="Couldn't load your data">
+        <p>{error}</p>
+        <p>Nothing was changed. Check your internet connection, then try again.</p>
+        <Button variant="outline" onClick={() => void store.reload()}>
+          <RefreshCw /> Try again
+        </Button>
+      </ProblemPanel>
+    );
+  }
+  return (
+    <ProblemPanel title="Browser storage isn't available">
+      <p>{error}</p>
+      <p>
+        This demo keeps data in your browser. Try a normal (non-private) window, or allow site data for this address, then
+        reload.
+      </p>
+    </ProblemPanel>
+  );
+}
+
 function InvalidData({ error }: { error: string }) {
   const store = useLifeStore();
   const [confirming, setConfirming] = useState(false);
@@ -74,13 +88,16 @@ function InvalidData({ error }: { error: string }) {
   return (
     <ProblemPanel title="Saved data couldn't be read">
       <p>
-        <span className="text-foreground font-medium">Nothing has been deleted.</span> The app found data in this
-        browser that it doesn&apos;t understand, so it stopped instead of overwriting it.
+        <span className="text-foreground font-medium">Nothing has been deleted.</span>{" "}
+        {store.mode === "cloud"
+          ? "Some records in your account don't match what the app expects, so it stopped instead of guessing."
+          : "The app found data in this browser that it doesn't understand, so it stopped instead of overwriting it."}
       </p>
       <p className="bg-muted rounded-md px-3 py-2 font-mono text-xs">{error}</p>
       <p>
-        Download a copy first. Resetting saves a backup of the unreadable data in this browser, then starts over with
-        example data.
+        {store.mode === "cloud"
+          ? "Download a copy and share the message above so we can fix it."
+          : "Download a copy first. Resetting saves a backup of the unreadable data in this browser, then starts over with example data."}
       </p>
       <div className="flex flex-wrap gap-2 pt-1">
         <Button
@@ -92,9 +109,11 @@ function InvalidData({ error }: { error: string }) {
         >
           <Download /> Download raw data
         </Button>
-        <Button variant="destructive" onClick={() => setConfirming(true)}>
-          <RotateCcw /> Reset to example data…
-        </Button>
+        {store.mode === "local" && (
+          <Button variant="destructive" onClick={() => setConfirming(true)}>
+            <RotateCcw /> Reset to example data…
+          </Button>
+        )}
       </div>
       <ConfirmResetDialog
         open={confirming}

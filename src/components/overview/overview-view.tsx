@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, CalendarClock, CalendarRange, CircleCheck, Flag, NotebookPen, Plug } from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
 import { useReady } from "@/components/shell/data-gate";
 import { useJournalDraft } from "@/components/journal/journal-draft-provider";
 import { TaskRow } from "@/components/tasks/task-row";
@@ -23,6 +24,8 @@ export function OverviewView() {
   const { data, today } = useReady();
   const router = useRouter();
   const { draft } = useJournalDraft();
+  const { auth } = useAuth();
+  const ownSource = auth.mode === "cloud" ? "Your account" : "Demo · this browser";
   const summary = summarizeTasks(data.tasks, today);
   const priorities = derivePriorities(data.tasks, today);
   const focus = sortTasks(data.tasks.filter((t) => isOpen(t) && ["overdue", "today", "upcoming"].includes(dueState(t, today)))).slice(0, 6);
@@ -152,8 +155,8 @@ export function OverviewView() {
             </div>
             <dl className="grid gap-1.5 text-sm">
               {[
-                ["Tasks", "Demo · this browser"],
-                ["Daily Journal", "Demo · this browser"],
+                ["Tasks", ownSource],
+                ["Daily Journal", ownSource],
                 ["Calendar", "Not connected"],
                 ["Finances", "Not connected"],
                 ["Health", "Not connected"],
@@ -161,7 +164,14 @@ export function OverviewView() {
               ].map(([name, status]) => (
                 <div key={name} className="flex justify-between gap-3">
                   <dt>{name}</dt>
-                  <dd className={cn("text-xs", status.startsWith("Demo") ? "text-amber-300" : "text-muted-foreground")}>{status}</dd>
+                  <dd
+                    className={cn(
+                      "text-xs",
+                      status === ownSource ? (auth.mode === "cloud" ? "text-emerald-300" : "text-amber-300") : "text-muted-foreground",
+                    )}
+                  >
+                    {status}
+                  </dd>
                 </div>
               ))}
             </dl>

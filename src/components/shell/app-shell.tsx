@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { HardDrive, NotebookPen, Plus } from "lucide-react";
+import { Cloud, HardDrive, NotebookPen, Plus } from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
 import { CaptureDialog } from "@/components/capture/capture-dialog";
 import { useJournalDraft } from "@/components/journal/journal-draft-provider";
 import { DataGate } from "@/components/shell/data-gate";
@@ -123,18 +124,23 @@ function BrandMark() {
 }
 
 function DemoBadge({ onClick, className }: { onClick: () => void; className?: string }) {
+  const { auth } = useAuth();
+  const cloud = auth.mode === "cloud";
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex cursor-pointer items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-500/20 dark:text-amber-200",
+        "inline-flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+        cloud
+          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 hover:bg-emerald-500/20 dark:text-emerald-200"
+          : "border-amber-500/40 bg-amber-500/10 text-amber-800 hover:bg-amber-500/20 dark:text-amber-200",
         className,
       )}
-      title="About demo storage"
+      title={cloud ? "Account and data" : "About demo storage"}
     >
-      <HardDrive className="size-3.5" aria-hidden />
-      Demo — saved in this browser
+      {cloud ? <Cloud className="size-3.5" aria-hidden /> : <HardDrive className="size-3.5" aria-hidden />}
+      {cloud ? "Saved to your account" : "Demo — saved in this browser"}
     </button>
   );
 }
